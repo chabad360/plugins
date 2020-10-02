@@ -25,16 +25,31 @@ func NewPluginHost(pluginDir string, pluginCacheDir string, pluginTypes map[stri
 	}
 
 	for name, pluginType := range pluginTypes {
-		host.PluginTypes[name] = reflect.TypeOf(pluginType).Elem()
+		host.AddPluginType(name, pluginType)
 	}
 
 	return host
 }
 
+// AddPluginType adds a plugin type to the list. The interfaces for the pluginType parameter should be a nil of the plugin type interface: (*PluginInterface)(nil) .
+func (h *PluginHost) AddPluginType(name string, pluginType interface{}) {
+	h.PluginTypes[name] = reflect.TypeOf(pluginType).Elem()
+}
+
+// LoadPlugins loads up the plugins in the plugin directory.
 func (h *PluginHost) LoadPlugins() error {
 	pluginZips, plugins, err := h.loadPluginHashes()
 	if err != nil {
 		return err
+	}
+
+	// This needs to go here and not with the lower "for hash, plugin" loop, because otherwise we risk deleting a plugin after it's been updated.
+	for hash, plugin := range plugins {
+		if _, ok := pluginZips[hash]; !ok {
+			if err = os.RemoveAll(strings.TrimSuffix(plugin, filepath.Base(plugin))); err != nil {
+				return err
+			}
+		}
 	}
 
 	for hash, zip := range pluginZips {
@@ -77,7 +92,7 @@ func (h *PluginHost) loadPlugin(plugin string, hash string) error {
 		return err
 	}
 
-	if !config.Local {
+	if !config.Local && config.Hash == "" {
 		config.Hash = hash
 
 		c, err = yaml.Marshal(config)
@@ -161,17 +176,7 @@ func (h *PluginHost) loadPluginHashes() (map[string]string, map[string]string, e
 			return err
 		}
 
-		if config.Local && config.Hash != "" {
-			return nil
-		}
-
-		if _, ok := zipHashes[config.Hash]; !ok {
-			if err := os.RemoveAll(strings.TrimSuffix(path, filepath.Base(path))); err != nil {
-				return err
-			}
-		} else {
-			pluginHashes[config.Hash] = path
-		}
+		pluginHashes[config.Hash] = path
 
 		return nil
 	})
@@ -217,6 +222,7 @@ func (h *PluginHost) validatePlugin(p interface{}, pluginType string) error {
 	return nil
 }
 
+// GetPlugin returns a plugin as an interface, provided you know what your getting, you can safely bind it to an interface.L
 func (h *PluginHost) GetPlugin(pluginName string) (interface{}, error) {
 	if _, ok := h.Plugins[pluginName]; !ok {
 		return nil, fmt.Errorf("no such plugin %s", pluginName)
