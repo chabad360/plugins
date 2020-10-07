@@ -13,21 +13,21 @@ import (
 type plugin struct {
 	config PluginConfig
 	Path   string
-	plugin      interface{}
+	plugin interface{}
 }
 
 // PluginConfig Describes the configuration for the plugin.yml file to be found at the root of the plugin folder.
 type PluginConfig struct {
 	// ImportPath is the module path i.e. "github.com/user/module"
-	ImportPath  string `yaml:"import"`
+	ImportPath string `yaml:"import"`
 	// PluginType is the type of plugin, this plugin is checked against that type.
 	// The available types are specified by the implementor of this package.
-	PluginType  string `yaml:"type"`
+	PluginType string `yaml:"type"`
 	// Name is the of the plugin, it's used to identify the plugin.
-	Name        string `yaml:"name"`
+	Name string `yaml:"name"`
 	// Local determines if the plugin is sourced from a zip file or not.
 	// This must be set to true if there is no matching zip file in the plugins folder, otherwise the plugin will be deleted.
-	Local       bool   `yaml:"local,omitempty"`
+	Local bool `yaml:"local,omitempty"`
 	// Description is a purely aesthetic field to to fill with information about the plugin.
 	Description string `yaml:"description"`
 	// Hash is automatically filled by the plugins module. DO NOT TOUCH!!!
@@ -35,7 +35,7 @@ type PluginConfig struct {
 	// If that zip file is missing (i.e. it's hash isn't in the plugins folder), it get's deleted.
 	//
 	// Again: DO NOT TOUCH!!!
-	Hash        string `yaml:"hash,omitempty"`
+	Hash string `yaml:"hash,omitempty"`
 }
 
 func (p *plugin) initPlugin() error {

@@ -1,12 +1,8 @@
 package plugins
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"github.com/xyproto/unzip"
-	"gopkg.in/yaml.v2"
-	"io"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -99,70 +95,12 @@ func (h *PluginHost) loadPluginHashes() (map[string]string, map[string]string, e
 	zipHashes := make(map[string]string)
 	pluginHashes := make(map[string]string)
 
-	err := filepath.Walk(h.PluginDir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-
-		if filepath.Ext(path) != ".zip" {
-			return fmt.Errorf("%w: File %v is not a zip file", ErrLoading, path)
-		}
-
-		f, err := os.Open(path)
-		if err != nil {
-			return err
-		}
-		defer f.Close()
-
-		hash := sha256.New()
-		if _, err := io.Copy(hash, f); err != nil {
-			return err
-		}
-		zipHashes[hex.EncodeToString(hash.Sum(nil))] = path
-
-		return nil
-	})
+	err := filepath.Walk(h.PluginDir, walkZipHashes(zipHashes))
 	if err != nil {
 		return nil, nil, err
 	}
 
-	err = filepath.Walk(h.PluginCacheDir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-
-		if filepath.Base(path) != "pluigin.yml" {
-			return filepath.SkipDir
-		}
-
-		f, err := os.Open(path)
-		if err != nil {
-			return err
-		}
-		defer f.Close()
-
-		var c []byte
-		if _, err := f.Read(c); err != nil {
-			return err
-		}
-
-		var config PluginConfig
-		if err := yaml.Unmarshal(c, &config); err != nil {
-			return err
-		}
-
-		if config.Local {
-			hash := sha256.New()
-			if _, err := io.Copy(hash, f); err != nil {
-				return err
-			}
-			pluginHashes[fmt.Sprintf("local-%x", hash.Sum(nil))] = path
-		} else {
-			pluginHashes[config.Hash] = path
-		}
-
-		return nil
-	})
+	err = filepath.Walk(h.PluginCacheDir, walkPluginHashes(pluginHashes))
 	if err != nil {
 		return nil, nil, err
 	}
