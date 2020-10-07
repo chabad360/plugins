@@ -4,8 +4,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"github.com/traefik/yaegi/interp"
-	"github.com/traefik/yaegi/stdlib"
 	"github.com/xyproto/unzip"
 	"gopkg.in/yaml.v2"
 	"io"
@@ -15,24 +13,38 @@ import (
 	"strings"
 )
 
-// NewPluginHost initializes a PluginHost. The interfaces in the the map should be a nil of the plugin type interface: (*PluginInterface)(nil) .
-func NewPluginHost(pluginDir string, pluginCacheDir string, pluginTypes map[string]interface{}) *PluginHost {
+// NewPluginHost initializes a PluginHost.
+func NewPluginHost(pluginDir string, pluginCacheDir string) *PluginHost {
 	host := &PluginHost{
 		PluginDir:      pluginDir,
 		PluginCacheDir: pluginCacheDir,
-		Plugins:        make(map[string]Plugin),
+		Plugins:        make(map[string]plugin),
 		PluginTypes:    make(map[string]reflect.Type),
-	}
-
-	for name, pluginType := range pluginTypes {
-		host.AddPluginType(name, pluginType)
 	}
 
 	return host
 }
 
-// AddPluginType adds a plugin type to the list. The interfaces for the pluginType parameter should be a nil of the plugin type interface: (*PluginInterface)(nil) .
+func (h *PluginHost) lazyInit() {
+	if h.PluginDir == "" {
+		h.PluginDir = "./plugins"
+	}
+	if h.PluginCacheDir == "" {
+		h.PluginCacheDir = "./plugins-cache"
+	}
+	if h.Plugins == nil {
+		h.Plugins = make(map[string]plugin)
+	}
+	if h.PluginTypes == nil {
+		h.PluginTypes = make(map[string]reflect.Type)
+	}
+}
+
+// AddPluginType adds a plugin type to the list.
+// The interface for the pluginType parameter should be a nil of the plugin type interface:
+//   (*PluginInterface)(nil)
 func (h *PluginHost) AddPluginType(name string, pluginType interface{}) {
+	h.lazyInit()
 	h.PluginTypes[name] = reflect.TypeOf(pluginType).Elem()
 }
 
@@ -45,7 +57,7 @@ func (h *PluginHost) LoadPlugins() error {
 
 	// This needs to go here and not with the lower "for hash, plugin" loop, because otherwise we risk deleting a plugin after it's been updated.
 	for hash, plugin := range plugins {
-		if _, ok := pluginZips[hash]; !ok {
+		if _, ok := pluginZips[hash]; !ok && !strings.HasPrefix(hash, "local") {
 			if err = os.RemoveAll(strings.TrimSuffix(plugin, filepath.Base(plugin))); err != nil {
 				return err
 			}
@@ -66,61 +78,24 @@ func (h *PluginHost) LoadPlugins() error {
 	}
 
 	for hash, plugin := range plugins {
-		err = h.loadPlugin(plugin, hash)
+		p, err := loadPlugin(plugin, hash)
 		if err != nil {
 			return err
 		}
-	}
 
-	return nil
-}
-
-func (h *PluginHost) loadPlugin(plugin string, hash string) error {
-	cF, err := os.Open(plugin)
-	if err != nil {
-		return err
-	}
-	defer cF.Close()
-
-	var c []byte
-	if _, err := cF.Read(c); err != nil {
-		return err
-	}
-
-	var config PluginConfig
-	if err := yaml.Unmarshal(c, &config); err != nil {
-		return err
-	}
-
-	if !config.Local && config.Hash == "" {
-		config.Hash = hash
-
-		c, err = yaml.Marshal(config)
-		if err != nil {
+		if err := h.validatePlugin(p.plugin, p.config.PluginType); err != nil {
 			return err
 		}
-		if _, err = cF.Write(c); err != nil {
-			return err
-		}
-	}
 
-	pluginPath := strings.TrimSuffix(plugin, filepath.Base(plugin))
-
-	v, err := h.initPlugin(config, pluginPath)
-	if err != nil {
-		return err
-	}
-
-	h.Plugins[config.Name] = Plugin{
-		config: config,
-		Path:   pluginPath,
-		p:      v,
+		h.Plugins[p.config.Name] = *p
 	}
 
 	return nil
 }
 
 func (h *PluginHost) loadPluginHashes() (map[string]string, map[string]string, error) {
+	h.lazyInit()
+
 	zipHashes := make(map[string]string)
 	pluginHashes := make(map[string]string)
 
@@ -176,7 +151,15 @@ func (h *PluginHost) loadPluginHashes() (map[string]string, map[string]string, e
 			return err
 		}
 
-		pluginHashes[config.Hash] = path
+		if config.Local {
+			hash := sha256.New()
+			if _, err := io.Copy(hash, f); err != nil {
+				return err
+			}
+			pluginHashes[fmt.Sprintf("local-%x", hash.Sum(nil))] = path
+		} else {
+			pluginHashes[config.Hash] = path
+		}
 
 		return nil
 	})
@@ -185,27 +168,6 @@ func (h *PluginHost) loadPluginHashes() (map[string]string, map[string]string, e
 	}
 
 	return zipHashes, pluginHashes, nil
-}
-
-func (h *PluginHost) initPlugin(config PluginConfig, extractedPath string) (interface{}, error) {
-	i := interp.New(interp.Options{GoPath: extractedPath})
-	i.Use(stdlib.Symbols)
-
-	_, err := i.Eval(fmt.Sprintf(`import "%s"`, config.ImportPath))
-	if err != nil {
-		return nil, err
-	}
-
-	v, err := i.Eval(filepath.Base(config.ImportPath) + ".Plugin")
-	if err != nil {
-		return nil, err
-	}
-
-	if err := h.validatePlugin(v, config.PluginType); err != nil {
-		return nil, err
-	}
-
-	return v, nil
 }
 
 func (h *PluginHost) validatePlugin(p interface{}, pluginType string) error {
@@ -222,11 +184,11 @@ func (h *PluginHost) validatePlugin(p interface{}, pluginType string) error {
 	return nil
 }
 
-// GetPlugin returns a plugin as an interface, provided you know what your getting, you can safely bind it to an interface.L
+// GetPlugin returns a plugin as an interface, provided you know what your getting, you can safely bind it to an interface.
 func (h *PluginHost) GetPlugin(pluginName string) (interface{}, error) {
 	if _, ok := h.Plugins[pluginName]; !ok {
 		return nil, fmt.Errorf("no such plugin %s", pluginName)
 	}
 
-	return h.Plugins[pluginName].p, nil
+	return h.Plugins[pluginName].plugin, nil
 }
