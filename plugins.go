@@ -38,7 +38,7 @@ func (h *PluginHost) lazyInit() {
 
 // AddPluginType adds a plugin type to the list.
 // The interface for the pluginType parameter should be a nil of the plugin type interface:
-//   (*PluginInterface)(nil)
+//  (*PluginInterface)(nil)
 func (h *PluginHost) AddPluginType(name string, pluginType interface{}) {
 	h.lazyInit()
 	h.PluginTypes[name] = reflect.TypeOf(pluginType).Elem()
@@ -120,6 +120,30 @@ func (h *PluginHost) validatePlugin(p interface{}, pluginType string) error {
 	}
 
 	return nil
+}
+
+// GetPlugins returns a list of the plugins by name.
+func (h *PluginHost) GetPlugins() (list []string) {
+	for k, _ := range h.Plugins {
+		list = append(list, k)
+	}
+
+	return
+}
+
+// GetPluginsForType returns all the plugins that are of type pluginType or empty if the pluginType doesn't exist.
+func (h *PluginHost) GetPluginsForType(pluginType string) (list []string) {
+	if _, ok := h.PluginTypes[pluginType]; !ok {
+		return
+	}
+
+	for k, v := range h.Plugins {
+		if v.config.PluginType == pluginType {
+			list = append(list, k)
+		}
+	}
+
+	return
 }
 
 // GetPlugin returns a plugin as an interface, provided you know what your getting, you can safely bind it to an interface.
