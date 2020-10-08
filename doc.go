@@ -1,10 +1,10 @@
 // Package plugins allows you to load arbitrary Go code after compilation.
-// Plugins are ran through Yaegi (https://github.com/treafik/yaegi), the Go interpreter.
+// Plugins are ran through Yaegi (https://github.com/traefik/yaegi), the Go interpreter.
 //
 // How it Works
 //
 // Plugins are downloaded as zip files and should be saved to a specified folder (e.g. /usr/lib/program/plugins).
-// Once downloaded, the hash for the zip files are collected and stored.
+// Once you run PluginHost.LoadPlugins() the hash for the zip files are collected and stored.
 // If there are any plugins in the cache folder, the hashes for their corresponding zip files are collected from the configuration (more on that later).
 // The hashes are compared against each other, if there is a hash in the plugins cache that isn't in the list of zip hashes, that plugin is removed (plugins with the tag local set to true are ignored).
 // If there is a hash for a zip file that isn't in the plugins cache, that plugin is unzipped.
@@ -13,9 +13,9 @@
 // The interpreter than retrieves the module.Plugin struct from the module.
 // This struct should implement the plugin type as declared in the plugin configuration.
 //
-// Now that the plugins have been loaded, you can run GetPlugins() to get a list of all loaded plugins.
-// Alternatively, you could run GetPluginsForType() to get a list of all loaded plugins that satisfy a certain plugin type.
-// Once you know that, you can pass the name of the plugin you'd like to use to GetPlugin() which returns an interface that can be bound to the desired plugin type interface.
+// Now that the plugins have been loaded, you can run PluginHost.GetPlugins() to get a list of all loaded plugins.
+// Alternatively, you could run PluginHost.GetPluginsForType() to get a list of all loaded plugins that satisfy a certain plugin type.
+// Once you know that, you can pass the name of the plugin you'd like to use to PluginHost.GetPlugin() which returns an interface that can be bound to the desired plugin type interface.
 // From there you can use it however you'd like.
 //
 // Usage
