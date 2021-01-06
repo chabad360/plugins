@@ -1,5 +1,5 @@
-github.com/traefik/yaegi v0.9.1 h1:guHw/ssSWBkZFrSFHdMh96glsF6DnvtR8GdlQqdH2uU=
-github.com/traefik/yaegi v0.9.1/go.mod h1:FAYnRlZyuVlEkvnkHq3bvJ1lW5be6XuwgLdkYgYG6Lk=
+github.com/traefik/yaegi v0.9.8 h1:sYGKV2d911B9olVsSO/nRmjIh+CQTffAUSzoyv4a4/4=
+github.com/traefik/yaegi v0.9.8/go.mod h1:FAYnRlZyuVlEkvnkHq3bvJ1lW5be6XuwgLdkYgYG6Lk=
 github.com/xyproto/unzip v0.0.0-20150601123358-823950573952 h1:pCgYs8AOzRpEmdM55hrSnd+TZOr+1/m9Y9KkFIZPwiU=
 github.com/xyproto/unzip v0.0.0-20150601123358-823950573952/go.mod h1:ygEdojOpwX5uG71ECHji5sod2rpZ+9hqNeAZD50S84Q=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405 h1:yhCVgyC4o1eVCa2tZl7eS0r+SDo693bJlVdllGtEeKM=

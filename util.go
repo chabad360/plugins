@@ -1,11 +1,13 @@
 package plugins
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"gopkg.in/yaml.v2"
 	"io"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 )
@@ -17,9 +19,10 @@ func walkZipHashes(zipHashes map[string]string) filepath.WalkFunc {
 		}
 
 		if filepath.Ext(path) != ".zip" {
-			return fmt.Errorf("%w: File %v is not a zip file", ErrLoading, path)
+			return nil
+			// fmt.Errorf("walkZipHashes: %w: %v", ErrLoading, path)
 		}
-
+		
 		f, err := os.Open(path)
 		if err != nil {
 			return err
@@ -32,6 +35,8 @@ func walkZipHashes(zipHashes map[string]string) filepath.WalkFunc {
 		}
 		zipHashes[hex.EncodeToString(hash.Sum(nil))] = path
 
+		fmt.Println(hash.Sum(nil))
+
 		return nil
 	}
 }
@@ -42,18 +47,13 @@ func walkPluginHashes(pluginHashes map[string]string) filepath.WalkFunc {
 			return err
 		}
 
-		if filepath.Base(path) != "pluigin.yml" {
-			return filepath.SkipDir
+		if filepath.Base(path) != "plugin.yml" {
+			//return filepath.SkipDir
+			return nil
 		}
 
-		f, err := os.Open(path)
+		c, err := ioutil.ReadFile(path)
 		if err != nil {
-			return err
-		}
-		defer f.Close()
-
-		var c []byte
-		if _, err := f.Read(c); err != nil {
 			return err
 		}
 
@@ -64,7 +64,7 @@ func walkPluginHashes(pluginHashes map[string]string) filepath.WalkFunc {
 
 		if config.Local {
 			hash := sha256.New()
-			if _, err := io.Copy(hash, f); err != nil {
+			if _, err := io.Copy(hash, bytes.NewReader(c)); err != nil {
 				return err
 			}
 			pluginHashes[fmt.Sprintf("local-%x", hash.Sum(nil))] = path

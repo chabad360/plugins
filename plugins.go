@@ -3,7 +3,6 @@ package plugins
 import (
 	"fmt"
 	"github.com/xyproto/unzip"
-	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -54,9 +53,11 @@ func (h *PluginHost) LoadPlugins() error {
 	// This needs to go here and not with the lower "for hash, plugin" loop, because otherwise we risk deleting a plugin after it's been updated.
 	for hash, plugin := range plugins {
 		if _, ok := pluginZips[hash]; !ok && !strings.HasPrefix(hash, "local") {
-			if err = os.RemoveAll(strings.TrimSuffix(plugin, filepath.Base(plugin))); err != nil {
-				return err
-			}
+			fmt.Println(hash)
+			fmt.Println(plugin)
+			//if err = os.RemoveAll(strings.TrimSuffix(plugin, filepath.Base(plugin))); err != nil{
+			//	return err
+			//}
 		}
 	}
 
@@ -112,11 +113,11 @@ func (h *PluginHost) validatePlugin(p interface{}, pluginType string) error {
 	pType := reflect.TypeOf(p)
 
 	if _, ok := h.PluginTypes[pluginType]; !ok {
-		return fmt.Errorf("%w: Plugin type %v is not a valid plugin type", ErrValidating, pluginType)
+		return fmt.Errorf("validatePlugin: %v: %w", pluginType, ErrInvalidType)
 	}
 
 	if ok := pType.Implements(h.PluginTypes[pluginType]); !ok {
-		return fmt.Errorf("%w: Plugin %v does not implement the %v plugin type", ErrValidating, p, pluginType)
+		return fmt.Errorf("validatePlugin:%v: %w %v", p, ErrValidatingPlugin, pluginType)
 	}
 
 	return nil
@@ -147,10 +148,10 @@ func (h *PluginHost) GetPluginsForType(pluginType string) (list []string) {
 }
 
 // GetPlugin returns a plugin as an interface, provided you know what your getting, you can safely bind it to an interface.
-func (h *PluginHost) GetPlugin(pluginName string) (interface{}, error) {
+func (h *PluginHost) GetPlugin(pluginName string) (interface{}, bool) {
 	if _, ok := h.Plugins[pluginName]; !ok {
-		return nil, fmt.Errorf("no such plugin %s", pluginName)
+		return nil, false
 	}
 
-	return h.Plugins[pluginName].plugin, nil
+	return h.Plugins[pluginName].plugin, true
 }

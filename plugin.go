@@ -3,10 +3,10 @@ package plugins
 import (
 	"fmt"
 	"github.com/traefik/yaegi/interp"
-	"github.com/traefik/yaegi/stdlib"
 	"gopkg.in/yaml.v2"
-	"os"
+	"io/ioutil"
 	"path/filepath"
+	"reflect"
 	"strings"
 )
 
@@ -27,12 +27,12 @@ type PluginConfig struct {
 	Name string `yaml:"name"`
 	// Local determines if the plugin is sourced from a zip file or not.
 	// This must be set to true if there is no matching zip file in the plugins folder, otherwise the plugin will be deleted.
-	Local bool `yaml:"local,omitempty"`
+	Local bool `yaml:"local"`
 	// Description is a purely aesthetic field to to fill with information about the plugin.
 	Description string `yaml:"description"`
 	// Hash is automatically filled by the plugins module. DO NOT TOUCH!!!
 	// It is corresponding to the zip file that it came from.
-	// If that zip file is missing (i.e. it's hash isn't in the plugins folder), it get's deleted.
+	// If that zip file is missing (i.e. it's hash isn't in the plugins folder), it gets deleted.
 	//
 	// Again: DO NOT TOUCH!!!
 	Hash string `yaml:"hash,omitempty"`
@@ -40,38 +40,40 @@ type PluginConfig struct {
 
 func (p *plugin) initPlugin() error {
 	i := interp.New(interp.Options{GoPath: p.Path})
-	i.Use(stdlib.Symbols)
+	//i.Use(stdlib.Symbols)
+	//i.Use(unsafe.Symbols)
+	//i.Use(syscall.Symbols)
 
 	_, err := i.Eval(fmt.Sprintf(`import "%s"`, p.config.ImportPath))
 	if err != nil {
-		return err
+		return fmt.Errorf("initPlugin: %w", err)
 	}
 
-	v, err := i.Eval(filepath.Base(p.config.ImportPath) + ".Plugin")
+	v, err := i.Eval(filepath.Base(p.config.ImportPath) + ".GetPlugin")
 	if err != nil {
-		return err
+		return fmt.Errorf("initPlugin: %w", err)
 	}
 
-	p.plugin = v
+	result := v.Call([]reflect.Value{})
+
+	if len(result) > 1 {
+		return fmt.Errorf("initPlugin: %w: function GetPlugin has more than one return value", ErrValidatingPlugin)
+	}
+
+	p.plugin = result[0].Interface()
 
 	return nil
 }
 
 func loadPlugin(pluginPath string, hash string) (*plugin, error) {
-	cF, err := os.Open(pluginPath)
+	c, err := ioutil.ReadFile(pluginPath)
 	if err != nil {
-		return nil, err
-	}
-	defer cF.Close()
-
-	var c []byte
-	if _, err := cF.Read(c); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("loadPlugin: %w", err)
 	}
 
 	var config PluginConfig
 	if err := yaml.Unmarshal(c, &config); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("loadPlugin: %w", err)
 	}
 
 	if !config.Local && config.Hash == "" {
@@ -79,10 +81,10 @@ func loadPlugin(pluginPath string, hash string) (*plugin, error) {
 
 		c, err = yaml.Marshal(config)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("loadPlugin: %w", err)
 		}
-		if _, err = cF.Write(c); err != nil {
-			return nil, err
+		if err = ioutil.WriteFile(pluginPath, c, 0666); err != nil {
+			return nil, fmt.Errorf("loadPlugin: %w", err)
 		}
 	}
 
@@ -92,7 +94,7 @@ func loadPlugin(pluginPath string, hash string) (*plugin, error) {
 	}
 
 	if err := p.initPlugin(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("loadPlugin: %w", err)
 	}
 
 	return &p, nil
