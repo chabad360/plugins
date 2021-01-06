@@ -3,6 +3,7 @@ package plugins
 import (
 	"fmt"
 	"github.com/traefik/yaegi/interp"
+	"github.com/traefik/yaegi/stdlib"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"path/filepath"
@@ -40,7 +41,7 @@ type PluginConfig struct {
 
 func (p *plugin) initPlugin() error {
 	i := interp.New(interp.Options{GoPath: p.Path})
-	//i.Use(stdlib.Symbols)
+	i.Use(stdlib.Symbols)
 	//i.Use(unsafe.Symbols)
 	//i.Use(syscall.Symbols)
 
