@@ -109,8 +109,8 @@ func (h *PluginHost) loadPluginHashes() (map[string]string, map[string]string, e
 	return zipHashes, pluginHashes, nil
 }
 
-func (h *PluginHost) validatePlugin(p interface{}, pluginType string) error {
-	pType := reflect.TypeOf(p)
+func (h *PluginHost) validatePlugin(p reflect.Value, pluginType string) error {
+	pType := reflect.TypeOf(p.Interface())
 
 	if _, ok := h.PluginTypes[pluginType]; !ok {
 		return fmt.Errorf("validatePlugin: %v: %w", pluginType, ErrInvalidType)
@@ -148,9 +148,9 @@ func (h *PluginHost) GetPluginsForType(pluginType string) (list []string) {
 }
 
 // GetPlugin returns a plugin as an interface, provided you know what your getting, you can safely bind it to an interface.
-func (h *PluginHost) GetPlugin(pluginName string) (interface{}, bool) {
+func (h *PluginHost) GetPlugin(pluginName string) (reflect.Value, bool) {
 	if _, ok := h.Plugins[pluginName]; !ok {
-		return nil, false
+		return reflect.ValueOf(nil), false
 	}
 
 	return h.Plugins[pluginName].plugin, true

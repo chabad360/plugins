@@ -14,7 +14,7 @@ import (
 type plugin struct {
 	config PluginConfig
 	Path   string
-	plugin interface{}
+	plugin reflect.Value
 }
 
 // PluginConfig Describes the configuration for the plugin.yml file to be found at the root of the plugin folder.
@@ -61,7 +61,7 @@ func (p *plugin) initPlugin() error {
 		return fmt.Errorf("initPlugin: %w: function GetPlugin has more than one return value", ErrValidatingPlugin)
 	}
 
-	p.plugin = result[0].Interface()
+	p.plugin = result[0]
 
 	return nil
 }
