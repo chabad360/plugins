@@ -39,9 +39,10 @@ type PluginConfig struct {
 	Hash string `yaml:"hash,omitempty"`
 }
 
-func (p *plugin) initPlugin() error {
+func (p *plugin) initPlugin(host PluginHost) error {
 	i := interp.New(interp.Options{GoPath: p.Path})
 	i.Use(stdlib.Symbols)
+	i.Use(host.Symbols)
 	//i.Use(unsafe.Symbols)
 	//i.Use(syscall.Symbols)
 
@@ -66,7 +67,7 @@ func (p *plugin) initPlugin() error {
 	return nil
 }
 
-func loadPlugin(pluginPath string, hash string) (*plugin, error) {
+func loadPlugin(pluginPath string, hash string, host PluginHost) (*plugin, error) {
 	c, err := ioutil.ReadFile(pluginPath)
 	if err != nil {
 		return nil, fmt.Errorf("loadPlugin: %w", err)
@@ -94,7 +95,7 @@ func loadPlugin(pluginPath string, hash string) (*plugin, error) {
 		Path:   strings.TrimSuffix(pluginPath, filepath.Base(pluginPath)),
 	}
 
-	if err := p.initPlugin(); err != nil {
+	if err := p.initPlugin(host); err != nil {
 		return nil, fmt.Errorf("loadPlugin: %w", err)
 	}
 

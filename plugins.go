@@ -9,12 +9,13 @@ import (
 )
 
 // NewPluginHost initializes a PluginHost.
-func NewPluginHost(pluginDir string, pluginCacheDir string) *PluginHost {
+func NewPluginHost(pluginDir string, pluginCacheDir string, symbols map[string]map[string]reflect.Value) *PluginHost {
 	host := &PluginHost{
 		PluginDir:      pluginDir,
 		PluginCacheDir: pluginCacheDir,
 		Plugins:        make(map[string]plugin),
 		PluginTypes:    make(map[string]reflect.Type),
+		Symbols: symbols,
 	}
 
 	return host
@@ -75,7 +76,7 @@ func (h *PluginHost) LoadPlugins() error {
 	}
 
 	for hash, plugin := range plugins {
-		p, err := loadPlugin(plugin, hash)
+		p, err := loadPlugin(plugin, hash, *h)
 		if err != nil {
 			return err
 		}
@@ -116,7 +117,7 @@ func (h *PluginHost) validatePlugin(p reflect.Value, pluginType string) error {
 		return fmt.Errorf("validatePlugin: %v: %w", pluginType, ErrInvalidType)
 	}
 
-	if ok := pType.Implements(h.PluginTypes[pluginType]); !ok {
+	if !pType.Implements(h.PluginTypes[pluginType]){
 		return fmt.Errorf("validatePlugin:%v: %w %v", p, ErrValidatingPlugin, pluginType)
 	}
 
