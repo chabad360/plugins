@@ -2,17 +2,18 @@ package plugins
 
 import (
 	"fmt"
-	"github.com/traefik/yaegi/interp"
-	"github.com/traefik/yaegi/stdlib"
-	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"path/filepath"
 	"reflect"
 	"strings"
+
+	"github.com/traefik/yaegi/interp"
+	"github.com/traefik/yaegi/stdlib"
+	"gopkg.in/yaml.v2"
 )
 
 type plugin struct {
-	config PluginConfig
+	Config PluginConfig
 	Path   string
 	plugin reflect.Value
 }
@@ -26,9 +27,11 @@ type PluginConfig struct {
 	PluginType string `yaml:"type"`
 	// Name is the of the plugin, it's used to identify the plugin.
 	Name string `yaml:"name"`
-	// Local determines if the plugin is sourced from a zip file or not.
+	// Local is set if the plugin is sourced from a local directory.
 	// This must be set to true if there is no matching zip file in the plugins folder, otherwise the plugin will be deleted.
 	Local bool `yaml:"local"`
+	// Internal is set if the plugin is loaded using AddInternalPlugin().
+	Internal bool `yaml:"-"`
 	// Description is a purely aesthetic field to to fill with information about the plugin.
 	Description string `yaml:"description"`
 	// Hash is automatically filled by the plugins module. DO NOT TOUCH!!!
@@ -46,12 +49,12 @@ func (p *plugin) initPlugin(host PluginHost) error {
 	//i.Use(unsafe.Symbols)
 	//i.Use(syscall.Symbols)
 
-	_, err := i.Eval(fmt.Sprintf(`import "%s"`, p.config.ImportPath))
+	_, err := i.Eval(fmt.Sprintf(`import "%s"`, p.Config.ImportPath))
 	if err != nil {
 		return fmt.Errorf("initPlugin: %w", err)
 	}
 
-	v, err := i.Eval(filepath.Base(p.config.ImportPath) + ".GetPlugin")
+	v, err := i.Eval(filepath.Base(p.Config.ImportPath) + ".GetPlugin")
 	if err != nil {
 		return fmt.Errorf("initPlugin: %w", err)
 	}
@@ -91,7 +94,7 @@ func loadPlugin(pluginPath string, hash string, host PluginHost) (*plugin, error
 	}
 
 	p := plugin{
-		config: config,
+		Config: config,
 		Path:   strings.TrimSuffix(pluginPath, filepath.Base(pluginPath)),
 	}
 

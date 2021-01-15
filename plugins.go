@@ -2,10 +2,12 @@ package plugins
 
 import (
 	"fmt"
-	"github.com/xyproto/unzip"
+	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
+
+	"github.com/xyproto/unzip"
 )
 
 // NewPluginHost initializes a PluginHost.
@@ -56,9 +58,9 @@ func (h *PluginHost) LoadPlugins() error {
 		if _, ok := pluginZips[hash]; !ok && !strings.HasPrefix(hash, "local") {
 			fmt.Println(hash)
 			fmt.Println(plugin)
-			//if err = os.RemoveAll(strings.TrimSuffix(plugin, filepath.Base(plugin))); err != nil{
-			//	return err
-			//}
+			if err = os.RemoveAll(strings.TrimSuffix(plugin, filepath.Base(plugin))); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -81,12 +83,31 @@ func (h *PluginHost) LoadPlugins() error {
 			return err
 		}
 
-		if err := h.validatePlugin(p.plugin, p.config.PluginType); err != nil {
+		if err := h.validatePlugin(*p); err != nil {
 			return err
 		}
 
-		h.Plugins[p.config.Name] = *p
+		h.Plugins[p.Config.Name] = *p
 	}
+
+	return nil
+}
+
+// AddInternalPlugin adds an compiled plugin as a valid plugin is the plugin system.
+func (h *PluginHost) AddInternalPlugin(v reflect.Value, conf PluginConfig) error {
+	conf.Internal = true
+
+	p := plugin{
+		Config: conf,
+		Path:   "internal/" + conf.Name,
+		plugin: v,
+	}
+
+	if err := h.validatePlugin(p); err != nil {
+		return err
+	}
+
+	h.Plugins[conf.Name] = p
 
 	return nil
 }
@@ -110,15 +131,15 @@ func (h *PluginHost) loadPluginHashes() (map[string]string, map[string]string, e
 	return zipHashes, pluginHashes, nil
 }
 
-func (h *PluginHost) validatePlugin(p reflect.Value, pluginType string) error {
-	pType := reflect.TypeOf(p.Interface())
+func (h *PluginHost) validatePlugin(p plugin) error {
+	pType := reflect.TypeOf(p.plugin.Interface())
 
-	if _, ok := h.PluginTypes[pluginType]; !ok {
-		return fmt.Errorf("validatePlugin: %v: %w", pluginType, ErrInvalidType)
+	if _, ok := h.PluginTypes[p.Config.PluginType]; !ok {
+		return fmt.Errorf("validatePlugin: %v: %w", p.Config.PluginType, ErrInvalidType)
 	}
 
-	if !pType.Implements(h.PluginTypes[pluginType]){
-		return fmt.Errorf("validatePlugin:%v: %w %v", p, ErrValidatingPlugin, pluginType)
+	if !pType.Implements(h.PluginTypes[p.Config.PluginType]){
+		return fmt.Errorf("validatePlugin:%v: %w %v", p, ErrValidatingPlugin, p.Config.PluginType)
 	}
 
 	return nil
@@ -126,7 +147,7 @@ func (h *PluginHost) validatePlugin(p reflect.Value, pluginType string) error {
 
 // GetPlugins returns a list of the plugins by name.
 func (h *PluginHost) GetPlugins() (list []string) {
-	for k, _ := range h.Plugins {
+	for k := range h.Plugins {
 		list = append(list, k)
 	}
 
@@ -140,7 +161,7 @@ func (h *PluginHost) GetPluginsForType(pluginType string) (list []string) {
 	}
 
 	for k, v := range h.Plugins {
-		if v.config.PluginType == pluginType {
+		if v.Config.PluginType == pluginType {
 			list = append(list, k)
 		}
 	}
@@ -148,7 +169,7 @@ func (h *PluginHost) GetPluginsForType(pluginType string) (list []string) {
 	return
 }
 
-// GetPlugin returns a plugin as an interface, provided you know what your getting, you can safely bind it to an interface.
+// GetPlugin returns a plugin as an reflect.Value, provided you know what your getting, you can safely bind the value.Interface() to an interface.
 func (h *PluginHost) GetPlugin(pluginName string) (reflect.Value, bool) {
 	if _, ok := h.Plugins[pluginName]; !ok {
 		return reflect.ValueOf(nil), false
