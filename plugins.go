@@ -11,7 +11,14 @@ import (
 )
 
 // NewPluginHost initializes a PluginHost.
-func NewPluginHost(pluginDir string, pluginCacheDir string, symbols map[string]map[string]reflect.Value) *PluginHost {
+func NewPluginHost(pluginDir string, pluginCacheDir string, symbols map[string]map[string]reflect.Value) (*PluginHost, error) {
+	if _, err := os.Stat(pluginDir); pluginDir != "" && os.IsNotExist(err) {
+		return nil, fmt.Errorf("NewPluginHost: %w", err)
+	}
+	if _, err := os.Stat(pluginCacheDir); pluginCacheDir != "" && os.IsNotExist(err) {
+		return nil, fmt.Errorf("NewPluginHost: %w", err)
+	}
+
 	host := &PluginHost{
 		PluginDir:      pluginDir,
 		PluginCacheDir: pluginCacheDir,
@@ -20,16 +27,10 @@ func NewPluginHost(pluginDir string, pluginCacheDir string, symbols map[string]m
 		Symbols: symbols,
 	}
 
-	return host
+	return host, nil
 }
 
-func (h *PluginHost) lazyInit() {
-	if h.PluginDir == "" {
-		h.PluginDir = "./plugins"
-	}
-	if h.PluginCacheDir == "" {
-		h.PluginCacheDir = "./plugins-cache"
-	}
+func (h *PluginHost) lazyInit() { // TODO: make this use sync.Once
 	if h.Plugins == nil {
 		h.Plugins = make(map[string]plugin)
 	}
@@ -48,6 +49,10 @@ func (h *PluginHost) AddPluginType(name string, pluginType interface{}) {
 
 // LoadPlugins loads up the plugins in the plugin directory.
 func (h *PluginHost) LoadPlugins() error {
+	if h.PluginDir == "" || h.PluginCacheDir == "" {
+		return fmt.Errorf("LoadPlugins: %w", ErrNoDirectorySpecified)
+	}
+
 	pluginZips, plugins, err := h.loadPluginHashes()
 	if err != nil {
 		return err

@@ -26,4 +26,6 @@ var (
 	ErrInvalidType = errors.New("invalid plugin type")
 	// ErrValidatingPlugin is returned when the plugin fails to fully implement the interface of the plugin type.
 	ErrValidatingPlugin = errors.New("plugin does not implement type")
+	// ErrNoDirectorySpecified is returned when LoadPlugin is called and the plugin folders are set to "".
+	ErrNoDirectorySpecified = errors.New("plugin directory not specified")
 )
