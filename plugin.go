@@ -13,33 +13,33 @@ import (
 )
 
 type plugin struct {
-	Config PluginConfig
-	Path   string
+	Config PluginConfig `json:"plugin_properties"`
+	Path   string       `json:"plugin_path"`
 	plugin reflect.Value
 }
 
 // PluginConfig Describes the configuration for the plugin.yml file to be found at the root of the plugin folder.
 type PluginConfig struct {
 	// ImportPath is the module path i.e. "github.com/user/module"
-	ImportPath string `yaml:"import"`
+	ImportPath string `yaml:"import" json:"import_path,omitempty"`
 	// PluginType is the type of plugin, this plugin is checked against that type.
 	// The available types are specified by the implementor of this package.
-	PluginType string `yaml:"type"`
+	PluginType string `yaml:"type" json:"plugin_type"`
 	// Name is the of the plugin, it's used to identify the plugin.
-	Name string `yaml:"name"`
+	Name string `yaml:"name" json:"name"`
 	// Local is set if the plugin is sourced from a local directory.
 	// This must be set to true if there is no matching zip file in the plugins folder, otherwise the plugin will be deleted.
-	Local bool `yaml:"local"`
+	Local bool `yaml:"local" json:"local_plugin"`
 	// Internal is set if the plugin is loaded using AddInternalPlugin().
-	Internal bool `yaml:"-"`
+	Internal bool `yaml:"-" json:"internal_plugin"`
 	// Description is a purely aesthetic field to to fill with information about the plugin.
-	Description string `yaml:"description"`
+	Description string `yaml:"description" json:"description"`
 	// Hash is automatically filled by the plugins module. DO NOT TOUCH!!!
 	// It is corresponding to the zip file that it came from.
 	// If that zip file is missing (i.e. it's hash isn't in the plugins folder), it gets deleted.
 	//
 	// Again: DO NOT TOUCH!!!
-	Hash string `yaml:"hash,omitempty"`
+	Hash string `yaml:"hash,omitempty" json:"plugin_id,omitempty"`
 }
 
 func (p *plugin) initPlugin(host PluginHost) error {
